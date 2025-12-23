@@ -197,3 +197,33 @@ if flagged.empty:
     st.info("No suspicious transactions")
 else:
     st.dataframe(flagged)
+# -------------------------------------
+# EMAIL ALERT SIMULATION
+# -------------------------------------
+st.subheader("📧 Fraud Alert Simulation")
+
+HIGH_RISK_THRESHOLD = 80
+
+high_risk_cases = df[df["risk_score"] >= HIGH_RISK_THRESHOLD]
+
+if high_risk_cases.empty:
+    st.success("✅ No high-risk fraud detected. No alerts triggered.")
+else:
+    st.warning(f"🚨 {len(high_risk_cases)} HIGH-RISK transactions detected!")
+
+    # Simulated email content
+    email_body = f"""
+    FRAUD ALERT 🚨
+
+    Number of High-Risk Transactions: {len(high_risk_cases)}
+
+    Top Risky Vendors:
+    {high_risk_cases['vendor_id'].value_counts().head(5).to_string()}
+
+    Immediate audit is recommended.
+    """
+
+    with st.expander("📨 View Simulated Email Alert"):
+        st.code(email_body)
+
+    st.info("📤 Email alert sent to: audit.department@gov.in (SIMULATED)")
