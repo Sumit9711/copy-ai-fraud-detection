@@ -3,76 +3,45 @@ import pandas as pd
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+import random
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # PAGE CONFIG
-# ---------------------------------------------------
+# --------------------------------------------------
 st.set_page_config(
     page_title="AI Public Fraud Detection",
     page_icon="🛡️",
     layout="wide"
 )
 
-# ---------------------------------------------------
-# GLOBAL CSS
-# ---------------------------------------------------
+# --------------------------------------------------
+# GLOBAL STYLES
+# --------------------------------------------------
 st.markdown("""
 <style>
-body { background-color: #f4f6f9; }
-
-.app-header {
-    background: linear-gradient(90deg, #1f4fd8, #3f8efc);
-    padding: 22px;
-    border-radius: 14px;
-    color: white;
-    text-align: center;
-    margin-bottom: 25px;
+.big-title {
+    font-size: 38px;
+    font-weight: 800;
+    color: #1f4ed8;
 }
-.app-header h1 { margin: 0; font-size: 32px; }
-.app-header p { margin-top: 6px; opacity: 0.9; }
-
-.card {
-    background-color: white;
-    padding: 18px;
-    border-radius: 14px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
+.subtle {
+    color: #6b7280;
 }
-
-.metric-card {
-    background: white;
-    border-left: 6px solid #3f8efc;
-    padding: 16px;
+.metric-box {
+    padding: 15px;
     border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-    text-align: center;
-}
-.metric-title { font-size: 14px; color: #6b7280; }
-.metric-value { font-size: 26px; font-weight: bold; color: #1f4fd8; }
-
-.chat-box {
-    background-color: #0f172a;
-    color: #e5e7eb;
-    padding: 18px;
-    border-radius: 14px;
-    font-family: monospace;
+    background: #f8fafc;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------
-# HEADER
-# ---------------------------------------------------
-st.markdown("""
-<div class="app-header">
-    <h1>🛡️ AI Public Fraud Detection System</h1>
-    <p>Machine Learning–based anomaly detection for government audits</p>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("<div class='big-title'>🛡️ AI-Based Public Fraud Detection System</div>", unsafe_allow_html=True)
+st.markdown("<p class='subtle'>Detect anomalies, assess risk, and support government audits using AI</p>", unsafe_allow_html=True)
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # LOAD MODEL
-# ---------------------------------------------------
+# --------------------------------------------------
 @st.cache_resource
 def load_artifacts():
     with open("fraud_model.pkl", "rb") as f:
@@ -83,66 +52,97 @@ def load_artifacts():
 
 model, scaler = load_artifacts()
 
-# ---------------------------------------------------
+# --------------------------------------------------
+# SYNTHETIC DATA GENERATOR (LARGE DATASET)
+# --------------------------------------------------
+@st.cache_data
+def generate_sample_data(n=5000):
+    departments = ["Health", "Education", "Transport", "Defense", "Rural", "Urban"]
+    vendors = [f"V{100+i}" for i in range(40)]
+    base_time = datetime.now() - timedelta(days=90)
+
+    data = []
+    for i in range(n):
+        dept = random.choice(departments)
+        vendor = random.choice(vendors)
+
+        amount = np.random.lognormal(mean=10, sigma=1.2)
+        if random.random() < 0.08:  # fraud spikes
+            amount *= random.randint(5, 20)
+
+        txn_time = base_time + timedelta(
+            days=random.randint(0, 90),
+            hours=random.randint(0, 23),
+            minutes=random.randint(0, 59)
+        )
+
+        data.append([
+            100000 + i,
+            dept,
+            vendor,
+            round(amount, 2),
+            txn_time
+        ])
+
+    return pd.DataFrame(
+        data,
+        columns=["transaction_id", "department_id", "vendor_id", "amount", "transaction_time"]
+    )
+
+# --------------------------------------------------
 # SIDEBAR
-# ---------------------------------------------------
-st.sidebar.header("🔍 Controls")
-st.sidebar.markdown("""
-**Project:** AI Fraud Detection  
-**Domain:** Public Finance  
-**Built with:** ML + Streamlit  
-""")
+# --------------------------------------------------
+st.sidebar.header("📂 Data Input")
 
-uploaded_file = st.sidebar.file_uploader("📂 Upload Transaction CSV", type="csv")
+uploaded_file = st.sidebar.file_uploader("Upload CSV", type="csv")
+use_sample = st.sidebar.button("🧪 Use Sample Dataset")
 
-if uploaded_file is None:
-    st.info("👈 Upload a CSV file to start analysis")
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    st.sidebar.success("Uploaded dataset loaded")
+
+elif use_sample:
+    df = generate_sample_data()
+    st.sidebar.info("Using large sample dataset (5,000 rows)")
+
+else:
+    st.info("Upload a CSV or click **Use Sample Dataset** to explore the dashboard.")
     st.stop()
 
-# ---------------------------------------------------
-# LOAD & VALIDATE DATA
-# ---------------------------------------------------
-df = pd.read_csv(uploaded_file)
-
-required_cols = ["transaction_id","department_id","vendor_id","amount","transaction_time"]
-for col in required_cols:
-    if col not in df.columns:
-        st.error(f"Missing required column: {col}")
-        st.stop()
-
-# ---------------------------------------------------
+# --------------------------------------------------
 # FEATURE ENGINEERING
-# ---------------------------------------------------
+# --------------------------------------------------
 df["transaction_time"] = pd.to_datetime(df["transaction_time"])
 df["hour"] = df["transaction_time"].dt.hour
-df["is_night"] = df["hour"].apply(lambda x: 1 if x < 6 or x > 22 else 0)
-df["is_weekend"] = df["transaction_time"].dt.weekday.apply(lambda x: 1 if x >= 5 else 0)
+df["is_night"] = ((df["hour"] < 6) | (df["hour"] > 22)).astype(int)
+df["is_weekend"] = (df["transaction_time"].dt.weekday >= 5).astype(int)
 
 df["log_amount"] = np.log1p(df["amount"])
+
 dept_mean = df.groupby("department_id")["amount"].transform("mean")
 dept_std = df.groupby("department_id")["amount"].transform("std")
 
 df["amount_zscore_dept"] = (df["amount"] - dept_mean) / dept_std
 df["amount_vs_dept_mean"] = df["amount"] / dept_mean
+
 df["vendor_txn_count"] = df.groupby("vendor_id")["vendor_id"].transform("count")
 df["vendor_avg_amount"] = df.groupby("vendor_id")["amount"].transform("mean")
 df["vendor_amount_ratio"] = df["amount"] / df["vendor_avg_amount"]
 
 features = [
-    "log_amount","amount_zscore_dept","amount_vs_dept_mean",
-    "hour","is_night","is_weekend",
-    "vendor_txn_count","vendor_avg_amount","vendor_amount_ratio"
+    "log_amount", "amount_zscore_dept", "amount_vs_dept_mean",
+    "hour", "is_night", "is_weekend",
+    "vendor_txn_count", "vendor_avg_amount", "vendor_amount_ratio"
 ]
 
 X = df[features].replace([np.inf, -np.inf], 0).fillna(0)
 X_scaled = scaler.transform(X)
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # MODEL PREDICTION
-# ---------------------------------------------------
+# --------------------------------------------------
 df["anomaly_score"] = model.decision_function(X_scaled)
-df["fraud_flag"] = model.predict(X_scaled)
-df["fraud_flag"] = df["fraud_flag"].apply(lambda x: 1 if x == -1 else 0)
+df["fraud_flag"] = (model.predict(X_scaled) == -1).astype(int)
 
 df["risk_score"] = (
     (df["anomaly_score"].max() - df["anomaly_score"]) /
@@ -150,79 +150,167 @@ df["risk_score"] = (
 ) * 100
 
 df["risk_level"] = pd.cut(
-    df["risk_score"], bins=[0,30,70,100],
-    labels=["Low","Medium","High"]
+    df["risk_score"], bins=[0, 30, 70, 100],
+    labels=["Low", "Medium", "High"]
 )
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # EXPLANATIONS
-# ---------------------------------------------------
+# --------------------------------------------------
 def explain(row):
     reasons = []
-    if row["amount_zscore_dept"] > 3: reasons.append("High amount vs department")
-    if row["vendor_amount_ratio"] > 3: reasons.append("Vendor spike")
-    if row["is_night"]: reasons.append("Night transaction")
-    if row["is_weekend"]: reasons.append("Weekend transaction")
-    if row["vendor_txn_count"] > 50: reasons.append("High vendor frequency")
-    return ", ".join(reasons) if reasons else "Normal pattern"
+    if row["amount_zscore_dept"] > 3:
+        reasons.append("Unusual amount for department")
+    if row["vendor_amount_ratio"] > 3:
+        reasons.append("Vendor billing spike")
+    if row["is_night"]:
+        reasons.append("Night transaction")
+    if row["is_weekend"]:
+        reasons.append("Weekend activity")
+    if row["vendor_txn_count"] > 80:
+        reasons.append("High vendor frequency")
+    return ", ".join(reasons) if reasons else "Normal behavior"
 
 df["explanation"] = df.apply(explain, axis=1)
 
-# ---------------------------------------------------
+# --------------------------------------------------
 # FILTERS
-# ---------------------------------------------------
-dept_filter = st.sidebar.multiselect("Department", df["department_id"].unique(), df["department_id"].unique())
-vendor_filter = st.sidebar.multiselect("Vendor", df["vendor_id"].unique(), df["vendor_id"].unique())
+# --------------------------------------------------
+st.sidebar.header("🔍 Filters")
 
-df = df[
-    (df["department_id"].isin(dept_filter)) &
-    (df["vendor_id"].isin(vendor_filter))
-]
+dept_filter = st.sidebar.multiselect(
+    "Department",
+    df["department_id"].unique(),
+    df["department_id"].unique()
+)
 
-# ---------------------------------------------------
+df = df[df["department_id"].isin(dept_filter)]
+
+# --------------------------------------------------
 # TABS
-# ---------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "📈 Analysis", "📄 Audits", "💬 Chatbot"])
+# --------------------------------------------------
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Overview",
+    "📈 Analysis",
+    "📄 Flagged Audits",
+    "💬 Auditor Assistant"
+])
 
-# -------------------- OVERVIEW --------------------
+# ---------------- TAB 1 ----------------
 with tab1:
-    st.markdown("<div class='card'><h3>📊 Key Metrics</h3></div>", unsafe_allow_html=True)
-    c1,c2,c3,c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Transactions", len(df))
+    c2.metric("Fraud Detected", df["fraud_flag"].sum())
+    c3.metric("High Risk", (df["risk_level"] == "High").sum())
+    c4.metric("Fraud Rate (%)", round(df["fraud_flag"].mean() * 100, 2))
 
-    c1.markdown(f"<div class='metric-card'><div class='metric-title'>Total Transactions</div><div class='metric-value'>{len(df)}</div></div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='metric-card'><div class='metric-title'>Fraud Detected</div><div class='metric-value'>{df['fraud_flag'].sum()}</div></div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='metric-card'><div class='metric-title'>High Risk</div><div class='metric-value'>{(df['risk_level']=='High').sum()}</div></div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='metric-card'><div class='metric-title'>Fraud %</div><div class='metric-value'>{round(df['fraud_flag'].mean()*100,2)}%</div></div>", unsafe_allow_html=True)
-
-# -------------------- ANALYSIS --------------------
+# ---------------- TAB 2 ----------------
 with tab2:
-    st.markdown("<div class='card'><h3>📈 Risk Distribution</h3></div>", unsafe_allow_html=True)
+    st.subheader("Risk Score Distribution")
     fig, ax = plt.subplots()
-    ax.hist(df["risk_score"], bins=30)
+    ax.hist(df["risk_score"], bins=40)
     st.pyplot(fig)
 
-    st.markdown("<div class='card'><h3>🏢 Department Risk</h3></div>", unsafe_allow_html=True)
+    st.subheader("Department Risk")
     st.bar_chart(df.groupby("department_id")["risk_score"].mean())
 
-# -------------------- AUDITS --------------------
+    st.subheader("Fraud by Hour")
+    st.line_chart(df.groupby("hour")["fraud_flag"].mean())
+
+# ---------------- TAB 3 ----------------
 with tab3:
-    flagged = df[df["fraud_flag"]==1]
-    st.markdown("<div class='card'><h3>📄 Flagged Transactions</h3></div>", unsafe_allow_html=True)
-    st.dataframe(flagged)
+    flagged = df[df["fraud_flag"] == 1][[
+        "transaction_id", "department_id", "vendor_id",
+        "amount", "risk_score", "risk_level", "explanation"
+    ]]
 
-    csv = flagged.to_csv(index=False).encode("utf-8")
-    st.download_button("📥 Download Audit Report", csv, "audit_report.csv")
+    if flagged.empty:
+        st.success("No suspicious transactions detected.")
+    else:
+        st.dataframe(flagged)
 
-# -------------------- CHATBOT --------------------
+        st.download_button(
+            "📥 Download Suspicious Transactions",
+            flagged.to_csv(index=False),
+            "suspicious_transactions.csv",
+            "text/csv"
+        )
+
+# ---------------- TAB 4 ----------------
 with tab4:
-    st.markdown("<div class='card'><h3>💬 Auditor Assistant</h3></div>", unsafe_allow_html=True)
-    q = st.text_input("Ask a question")
-    if q:
-        if "high risk" in q.lower():
-            answer = f"High-risk cases: {(df['risk_level']=='High').sum()}"
-        elif "top vendor" in q.lower():
-            answer = df[df["fraud_flag"]==1]["vendor_id"].value_counts().head(5).to_string()
-        else:
-            answer = "Ask about high-risk cases or vendors."
+    st.header("💬 Virtual Auditor Assistant")
+    st.caption("AI-powered assistant to help auditors quickly understand risks")
 
-        st.markdown(f"<div class='chat-box'>🤖 {answer}</div>", unsafe_allow_html=True)
+    st.markdown("### 📋 Quick Questions")
+
+    question = st.selectbox(
+        "Choose a question:",
+        [
+            "Select a question",
+            "How many high-risk transactions are there?",
+            "What is the total fraud detected?",
+            "Who are the top risky vendors?",
+            "Which department has highest risk?",
+            "Give risk-level summary",
+            "Show fraud trend by hour",
+            "Explain how this AI model works"
+        ]
+    )
+
+    st.markdown("### 🤖 Assistant Response")
+
+    if question == "How many high-risk transactions are there?":
+        count = (df["risk_level"] == "High").sum()
+        st.success(f"🔴 There are **{count} high-risk transactions** requiring immediate audit.")
+
+    elif question == "What is the total fraud detected?":
+        frauds = df["fraud_flag"].sum()
+        st.success(f"🚨 The system detected **{frauds} suspicious transactions**.")
+
+    elif question == "Who are the top risky vendors?":
+        vendors = df[df["fraud_flag"] == 1]["vendor_id"].value_counts().head(5)
+        if vendors.empty:
+            st.info("No risky vendors detected.")
+        else:
+            st.write("🚩 **Top Risky Vendors:**")
+            st.dataframe(vendors.reset_index().rename(columns={
+                "index": "Vendor ID",
+                "vendor_id": "Fraud Count"
+            }))
+
+    elif question == "Which department has highest risk?":
+        dept = df.groupby("department_id")["risk_score"].mean().idxmax()
+        score = df.groupby("department_id")["risk_score"].mean().max()
+        st.warning(f"🏢 **{dept} Department** has the highest average risk score ({round(score,2)}).")
+
+    elif question == "Give risk-level summary":
+        summary = df["risk_level"].value_counts()
+        st.write("📊 **Risk Distribution:**")
+        st.dataframe(summary)
+
+    elif question == "Show fraud trend by hour":
+        trend = df.groupby("hour")["fraud_flag"].mean()
+        st.line_chart(trend)
+
+    elif question == "Explain how this AI model works":
+        st.info("""
+        🧠 **AI Model Explanation**
+
+        - Uses **Isolation Forest**, an unsupervised anomaly detection algorithm
+        - Learns normal spending behavior automatically
+        - Flags transactions that significantly deviate from patterns
+        - Combines time, vendor behavior, department averages, and amount spikes
+        - Produces a **risk score (0–100)** for prioritizing audits
+        """)
+
+    else:
+        st.info("Select a question to get insights instantly.")
+
+    # Optional custom question
+    st.markdown("---")
+    st.markdown("### ✍️ Ask Your Own Question")
+
+    custom_q = st.text_input("Type your own audit-related question")
+
+    if custom_q:
+        st.warning("🤖 Free-text understanding is limited in demo mode. Please use quick questions above.")
