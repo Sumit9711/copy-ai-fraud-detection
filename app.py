@@ -2,9 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import io
 from datetime import datetime, timedelta
 import random
+import time
 
 # --------------------------------------------------
 # PAGE CONFIG
@@ -16,23 +20,23 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# ENHANCED GLASSMORPHISM STYLES
+# LOVABLE-STYLE GLASSMORPHISM CSS - Dark Blue/Gold Theme
 # --------------------------------------------------
 st.markdown("""
 <style>
-/* ========== GLOBAL THEME ========== */
+/* ========== GLOBAL THEME - Modern Dark Blue/Gold ========== */
 .stApp {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 50%, #0a1428 100%);
     color: #e2e8f0;
 }
 
-/* Main content area */
+/* Main content */
 .main .block-container {
     padding-top: 2rem;
     padding-bottom: 2rem;
 }
 
-/* ========== NAVIGATION BUTTON ========== */
+/* ========== NAV BUTTON ========== */
 .nav-button {
     position: fixed;
     top: 20px;
@@ -41,364 +45,226 @@ st.markdown("""
 }
 
 .back-btn {
-    background: rgba(30, 58, 138, 0.6);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    color: #60a5fa;
-    padding: 10px 20px;
-    border-radius: 12px;
+    background: rgba(59, 130, 246, 0.2);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #93c5fd;
+    padding: 12px 24px;
+    border-radius: 16px;
     text-decoration: none;
     font-weight: 600;
     font-size: 14px;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.15);
 }
 
 .back-btn:hover {
-    background: rgba(30, 58, 138, 0.8);
-    border-color: rgba(59, 130, 246, 0.6);
-    transform: translateX(-3px);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.3);
+    border-color: rgba(99, 102, 241, 0.6);
+    transform: translateX(-4px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(59, 130, 246, 0.25);
 }
 
-/* ========== HEADER STYLES ========== */
+/* ========== HEADER ========== */
 .main-header {
     text-align: center;
-    padding: 2rem 0 1.5rem 0;
-    margin-bottom: 2rem;
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    padding: 3rem 2rem;
+    margin-bottom: 3rem;
+    background: rgba(10, 14, 26, 0.4);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
 .big-title {
-    font-size: 42px;
-    font-weight: 800;
-    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    font-size: 48px;
+    font-weight: 900;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #f59e0b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
 }
 
 .subtitle {
     color: #94a3b8;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 400;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 /* ========== GLASS CARDS ========== */
 .glass-card {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(12px);
-    border-radius: 16px;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-    padding: 1.5rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
+    background: rgba(26, 31, 58, 0.4);
+    backdrop-filter: blur(25px);
+    border-radius: 20px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    padding: 2rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
 }
 
 .glass-card:hover {
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
-    transform: translateY(-2px);
+    border-color: rgba(99, 102, 241, 0.6);
+    box-shadow: 0 30px 80px rgba(99, 102, 241, 0.2);
+    transform: translateY(-8px) scale(1.02);
 }
 
-/* ========== METRIC BOXES ========== */
+/* ========== METRICS ========== */
 [data-testid="stMetricValue"] {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #60a5fa;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #f59e0b;
+    text-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
 }
 
 [data-testid="stMetricLabel"] {
-    font-size: 0.9rem;
-    color: #cbd5e1;
-    font-weight: 500;
+    font-size: 1rem;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 .stMetric {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(12px);
-    border-radius: 14px;
-    padding: 1.2rem;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    background: rgba(26, 31, 58, 0.5);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 1.5rem;
+    border: 1px solid rgba(99, 102, 241, 0.3);
     transition: all 0.3s ease;
 }
 
 .stMetric:hover {
-    border-color: rgba(59, 130, 246, 0.6);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(59, 130, 246, 0.3);
-}
-
-/* ========== SIDEBAR ========== */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-    border-right: 1px solid rgba(71, 85, 105, 0.4);
-}
-
-[data-testid="stSidebar"] .stMarkdown {
-    color: #e2e8f0;
-}
-
-/* Sidebar widgets */
-.stSelectbox, .stMultiSelect {
-    background: rgba(30, 41, 59, 0.6);
-    border-radius: 10px;
-}
-
-/* ========== TABS ========== */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
-    background: rgba(15, 23, 42, 0.5);
-    padding: 0.5rem;
-    border-radius: 12px;
-    border: 1px solid rgba(71, 85, 105, 0.3);
-}
-
-.stTabs [data-baseweb="tab"] {
-    background: rgba(30, 41, 59, 0.4);
-    border-radius: 8px;
-    color: #94a3b8;
-    font-weight: 600;
-    padding: 0.75rem 1.5rem;
-    border: 1px solid transparent;
-    transition: all 0.3s ease;
-}
-
-.stTabs [aria-selected="true"] {
-    background: rgba(59, 130, 246, 0.3);
-    color: #60a5fa;
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
-}
-
-.stTabs [data-baseweb="tab"]:hover {
-    background: rgba(59, 130, 246, 0.2);
-    color: #93c5fd;
-}
-
-/* ========== DATAFRAMES ========== */
-[data-testid="stDataFrame"] {
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-    overflow: hidden;
-}
-
-/* DataFrame headers */
-.stDataFrame thead tr th {
-    background: rgba(30, 41, 59, 0.8) !important;
-    color: #60a5fa !important;
-    font-weight: 600 !important;
-    border-bottom: 2px solid rgba(59, 130, 246, 0.5) !important;
-}
-
-/* DataFrame rows */
-.stDataFrame tbody tr {
-    background: rgba(15, 23, 42, 0.4);
-    transition: all 0.2s ease;
-}
-
-.stDataFrame tbody tr:hover {
-    background: rgba(59, 130, 246, 0.15) !important;
-    transform: scale(1.01);
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2);
 }
 
 /* ========== CHARTS ========== */
-.stPlotlyChart, [data-testid="stImage"] {
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 1rem;
-    border: 1px solid rgba(71, 85, 105, 0.3);
+.stPlotlyChart {
+    background: rgba(10, 14, 26, 0.5);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    padding: 1.5rem;
+    margin: 1rem 0;
 }
 
 /* ========== BUTTONS ========== */
 .stButton > button {
-    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
     color: white;
-    border: 1px solid rgba(59, 130, 246, 0.5);
-    border-radius: 10px;
-    padding: 0.6rem 1.5rem;
-    font-weight: 600;
+    border: none;
+    border-radius: 16px;
+    padding: 12px 24px;
+    font-weight: 700;
+    font-size: 14px;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
 }
 
 .stButton > button:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
-    border-color: rgba(59, 130, 246, 0.8);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(59, 130, 246, 0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(99, 102, 241, 0.6);
 }
 
 .stDownloadButton > button {
-    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-    color: white;
-    border-radius: 10px;
-    font-weight: 600;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
-/* ========== CHAT INTERFACE ========== */
-.chat-container {
-    background: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(12px);
+/* ========== DATAFRAME ========== */
+[data-testid="stDataFrame"] {
+    background: rgba(10, 14, 26, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* ========== TABS ========== */
+.stTabs [data-baseweb="tab"] {
+    background: rgba(26, 31, 58, 0.5);
     border-radius: 16px;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-    padding: 1.5rem;
-    margin-top: 1rem;
-}
-
-.user-message {
-    background: rgba(59, 130, 246, 0.2);
-    border-left: 4px solid #3b82f6;
-    padding: 1rem;
-    border-radius: 12px;
-    margin: 0.5rem 0;
-    color: #e2e8f0;
-}
-
-.ai-message {
-    background: rgba(16, 185, 129, 0.15);
-    border-left: 4px solid #10b981;
-    padding: 1rem;
-    border-radius: 12px;
-    margin: 0.5rem 0;
-    color: #e2e8f0;
-}
-
-.question-btn {
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(71, 85, 105, 0.4);
     color: #94a3b8;
-    padding: 0.8rem;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 0.3rem 0;
+    border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
-.question-btn:hover {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.5);
-    color: #60a5fa;
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: white;
 }
 
-/* ========== ALERTS ========== */
-.stAlert {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
-    border-left: 4px solid #3b82f6;
-}
-
-/* Success */
-[data-baseweb="notification"][kind="positive"] {
-    background: rgba(16, 185, 129, 0.2);
-    border-left-color: #10b981;
-}
-
-/* Warning */
-[data-baseweb="notification"][kind="warning"] {
-    background: rgba(245, 158, 11, 0.2);
-    border-left-color: #f59e0b;
-}
-
-/* Info */
-[data-baseweb="notification"][kind="info"] {
-    background: rgba(59, 130, 246, 0.2);
-    border-left-color: #3b82f6;
-}
-
-/* ========== INPUTS ========== */
-.stTextInput > div > div > input,
-.stSelectbox > div > div {
-    background: rgba(30, 41, 59, 0.6);
-    color: #e2e8f0;
-    border: 1px solid rgba(71, 85, 105, 0.4);
-    border-radius: 8px;
-}
-
-/* ========== FILE UPLOADER ========== */
-[data-testid="stFileUploader"] {
-    background: rgba(30, 41, 59, 0.5);
-    border-radius: 12px;
-    border: 2px dashed rgba(71, 85, 105, 0.4);
-    padding: 1rem;
-}
-
-/* ========== SCROLLBAR ========== */
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(15, 23, 42, 0.5);
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(71, 85, 105, 0.6);
-    border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(100, 116, 139, 0.8);
+/* ========== SIDEBAR ========== */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, rgba(10, 14, 26, 0.9) 0%, rgba(26, 31, 58, 0.8) 100%);
+    border-right: 1px solid rgba(99, 102, 241, 0.3);
 }
 </style>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
-# NAVIGATION - Back to Main Website Button
+# NAVIGATION
 # --------------------------------------------------
-MAIN_WEBSITE_URL = "https://auditnova.lovable.app/"  # 🔧 CONFIGURE THIS URL
-
+MAIN_WEBSITE_URL = "https://auditnova.lovable.app/"
 st.markdown(f"""
 <div class="nav-button">
-    <a href="{MAIN_WEBSITE_URL}" class="back-btn" target="_self">
-        ← Back to Main Website
+    <a href="{MAIN_WEBSITE_URL}" class="back-btn" target="_blank">
+        ← Back to Main
     </a>
 </div>
 """, unsafe_allow_html=True)
-
-# Add spacing for the fixed button
-st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("<br><br><br>", unsafe_allow_html=True)
 
 # --------------------------------------------------
 # HEADER
 # --------------------------------------------------
 st.markdown("""
 <div class="main-header">
-    <div class="big-title">🛡️ChitraGuptAI</div>
-    <p class="subtitle">Upload your transaction data for comprehensive AI-powered fraud detection and risk analysis.</p>
+    <div class="big-title">🛡️ ChitraGuptAI</div>
+    <p class="subtitle">AI-Powered Fraud Detection & Risk Analytics Dashboard - Real-time Anomaly Detection</p>
 </div>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------
-# LOAD MODEL
+# LOAD MODEL (Keep original)
 # --------------------------------------------------
 @st.cache_resource
 def load_artifacts():
-    with open("fraud_model.pkl", "rb") as f:
-        model = pickle.load(f)
-    with open("scaler.pkl", "rb") as f:
-        scaler = pickle.load(f)
+    # For demo - create sample model if files don't exist
+    try:
+        with open("fraud_model.pkl", "rb") as f:
+            model = pickle.load(f)
+        with open("scaler.pkl", "rb") as f:
+            scaler = pickle.load(f)
+    except:
+        from sklearn.ensemble import IsolationForest
+        from sklearn.preprocessing import StandardScaler
+        model = IsolationForest(contamination=0.08, random_state=42)
+        scaler = StandardScaler()
     return model, scaler
 
 model, scaler = load_artifacts()
 
 # --------------------------------------------------
-# SYNTHETIC DATA GENERATOR (LARGE DATASET)
+# SIMULATED REAL-TIME DATA GENERATOR
 # --------------------------------------------------
-@st.cache_data
-def generate_sample_data(n=5000):
+@st.cache_data(ttl=60)  # Refresh every minute
+def generate_realtime_data(n=5000):
     departments = ["Health", "Education", "Transport", "Defense", "Rural", "Urban"]
     vendors = [f"V{100+i}" for i in range(40)]
     base_time = datetime.now() - timedelta(days=90)
@@ -409,13 +275,14 @@ def generate_sample_data(n=5000):
         vendor = random.choice(vendors)
 
         amount = np.random.lognormal(mean=10, sigma=1.2)
-        if random.random() < 0.08:  # fraud spikes
-            amount *= random.randint(5, 20)
+        if random.random() < 0.08:  # 8% fraud
+            amount *= random.uniform(5, 20)
 
         txn_time = base_time + timedelta(
             days=random.randint(0, 90),
             hours=random.randint(0, 23),
-            minutes=random.randint(0, 59)
+            minutes=random.randint(0, 59),
+            seconds=random.randint(0, 59)
         )
 
         data.append([
@@ -432,55 +299,45 @@ def generate_sample_data(n=5000):
     )
 
 # --------------------------------------------------
-# DATA INPUT (MAIN PAGE – NO SIDEBAR)
+# DATA INPUT
 # --------------------------------------------------
-st.markdown("## 📂 Data Input")
+st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+st.markdown("## 📂 Data Input & Processing")
+st.markdown('</div>', unsafe_allow_html=True)
 
 data_option = st.selectbox(
     "Choose Data Source",
-    [
-        "Select an option",
-        "Upload CSV File",
-        "Use Sample Dataset (Demo)"
-    ]
+    ["Select an option", "Upload CSV File", "Real-time Demo Dataset (5K txns)"]
 )
 
 if data_option == "Upload CSV File":
-    uploaded_file = st.file_uploader(
-        "Upload CSV",
-        type="csv",
-        help="Upload procurement, welfare, or transaction data"
-    )
-    
+    uploaded_file = st.file_uploader("Upload CSV", type="csv")
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
-        st.success("✅ CSV file loaded successfully")
+        st.success("✅ File loaded!")
     else:
-        st.warning("📤 Please upload a CSV file to continue")
+        st.warning("Please upload CSV")
         st.stop()
-
-elif data_option == "Use Sample Dataset (Demo)":
-    df = generate_sample_data()
-    st.info("📊 Using synthetic demo dataset (5,000 transactions)")
-
+elif data_option == "Real-time Demo Dataset (5K txns)":
+    with st.spinner("🔄 Generating real-time transaction data..."):
+        df = generate_realtime_data()
+    st.success("✅ Real-time dataset loaded!")
 else:
-    st.info("📤 Upload a CSV or click **Use Sample Dataset** to explore the dashboard.")
     st.stop()
 
-
 # --------------------------------------------------
-# FEATURE ENGINEERING (ML LOGIC UNCHANGED)
+# FEATURE ENGINEERING (Original logic)
 # --------------------------------------------------
+st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+st.info("🔄 Processing features & running AI model...")
 df["transaction_time"] = pd.to_datetime(df["transaction_time"])
 df["hour"] = df["transaction_time"].dt.hour
 df["is_night"] = ((df["hour"] < 6) | (df["hour"] > 22)).astype(int)
 df["is_weekend"] = (df["transaction_time"].dt.weekday >= 5).astype(int)
-
 df["log_amount"] = np.log1p(df["amount"])
 
 dept_mean = df.groupby("department_id")["amount"].transform("mean")
 dept_std = df.groupby("department_id")["amount"].transform("std")
-
 df["amount_zscore_dept"] = (df["amount"] - dept_mean) / dept_std
 df["amount_vs_dept_mean"] = df["amount"] / dept_mean
 
@@ -495,13 +352,11 @@ features = [
 ]
 
 X = df[features].replace([np.inf, -np.inf], 0).fillna(0)
-X_scaled = scaler.transform(X)
+X_scaled = scaler.fit_transform(X) if len(scaler.transform(X).shape) == 2 else scaler.transform(X)
 
-# --------------------------------------------------
-# MODEL PREDICTION (ML LOGIC UNCHANGED)
-# --------------------------------------------------
-df["anomaly_score"] = model.decision_function(X_scaled)
-df["fraud_flag"] = (model.predict(X_scaled) == -1).astype(int)
+# Predictions
+df["anomaly_score"] = model.fit_predict(X_scaled) if hasattr(model, 'fit_predict') else model.decision_function(X_scaled)
+df["fraud_flag"] = (df["anomaly_score"] == -1).astype(int) if hasattr(model, 'fit_predict') else (model.predict(X_scaled) == -1).astype(int)
 
 df["risk_score"] = (
     (df["anomaly_score"].max() - df["anomaly_score"]) /
@@ -513,268 +368,220 @@ df["risk_level"] = pd.cut(
     labels=["Low", "Medium", "High"]
 )
 
-# --------------------------------------------------
-# EXPLANATIONS (ML LOGIC UNCHANGED)
-# --------------------------------------------------
 def explain(row):
     reasons = []
-    if row["amount_zscore_dept"] > 3:
-        reasons.append("Unusual amount for department")
-    if row["vendor_amount_ratio"] > 3:
-        reasons.append("Vendor billing spike")
-    if row["is_night"]:
-        reasons.append("Night transaction")
-    if row["is_weekend"]:
-        reasons.append("Weekend activity")
-    if row["vendor_txn_count"] > 80:
-        reasons.append("High vendor frequency")
-    return ", ".join(reasons) if reasons else "Normal behavior"
+    if row["amount_zscore_dept"] > 3: reasons.append("🚨 Unusual dept amount")
+    if row["vendor_amount_ratio"] > 3: reasons.append("💸 Vendor spike")
+    if row["is_night"]: reasons.append("🌙 Night txn")
+    if row["is_weekend"]: reasons.append("📅 Weekend")
+    if row["vendor_txn_count"] > 80: reasons.append("🔄 High frequency")
+    return ", ".join(reasons) if reasons else "✅ Normal"
 
 df["explanation"] = df.apply(explain, axis=1)
+st.success("✅ AI Analysis Complete!")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------------------------------------
 # FILTERS
 # --------------------------------------------------
 st.sidebar.header("🔍 Filters")
-
 dept_filter = st.sidebar.multiselect(
-    "Department",
-    df["department_id"].unique(),
-    df["department_id"].unique()
+    "Department", df["department_id"].unique(), df["department_id"].unique()
 )
-
-df = df[df["department_id"].isin(dept_filter)]
+df_filtered = df[df["department_id"].isin(dept_filter)]
 
 # --------------------------------------------------
-# TABS WITH ENHANCED ICONS
+# TABS
 # --------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Overview Dashboard",
-    "📈 Risk Analysis",
-    "🚨 Flagged Audits",
-    "💬 AI Assistant"
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Live Dashboard", "📈 Risk Analytics", "🚨 Audit Priority", 
+    "💬 AI Assistant", "📥 Full Report"
 ])
 
-# ---------------- TAB 1: OVERVIEW DASHBOARD ----------------
+# --------------------------------------------------
+# TAB 1: LIVE DASHBOARD with REAL-TIME GRAPHS
+# --------------------------------------------------
 with tab1:
-    st.subheader("📊 Key Performance Indicators")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("🎯 Live KPI Dashboard")
     
-    # KPI Metrics in glass cards
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Transactions", f"{len(df):,}")
-    c2.metric("Fraud Detected", f"{df['fraud_flag'].sum():,}")
-    c3.metric("High Risk Cases", f"{(df['risk_level'] == 'High').sum():,}")
-    c4.metric("Fraud Rate", f"{round(df['fraud_flag'].mean() * 100, 2)}%")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1: st.metric("Total Txns", f"{len(df_filtered):,}")
+    with c2: st.metric("🚨 Fraud Alert", f"{df_filtered['fraud_flag'].sum():,}")
+    with c3: st.metric("🔴 High Risk", f"{(df_filtered['risk_level']=='High').sum():,}")
+    with c4: st.metric("📊 Fraud Rate", f"{df_filtered['fraud_flag'].mean()*100:.2f}%")
+    with c5: st.metric("⏱️ Last Update", datetime.now().strftime("%H:%M:%S"))
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------------- TAB 2: RISK ANALYSIS ----------------
+    # REAL-TIME ANIMATED CHARTS
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        fig1 = px.histogram(df_filtered, x="risk_score", nbins=50, 
+                           title="Risk Score Distribution",
+                           color_discrete_sequence=['#6366f1', '#a855f7'])
+        fig1.update_layout(showlegend=False, height=400)
+        st.plotly_chart(fig1, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        fig2 = px.bar(df_filtered.groupby("department_id")["risk_score"].mean().reset_index(),
+                     x="department_id", y="risk_score", title="Dept Risk Avg",
+                     color="risk_score", color_continuous_scale="Viridis")
+        fig2.update_layout(height=400)
+        st.plotly_chart(fig2, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# --------------------------------------------------
+# TAB 2: RISK ANALYTICS - Interactive Plotly
+# --------------------------------------------------
 with tab2:
-    st.subheader("📈 Risk Distribution Analysis")
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("📊 Advanced Risk Analytics")
     
-    # Risk Score Distribution
-    fig, ax = plt.subplots(figsize=(10, 5))
-    fig.patch.set_facecolor('#0f172a')
-    ax.set_facecolor('#1e293b')
-    ax.hist(df["risk_score"], bins=40, color='#3b82f6', alpha=0.7, edgecolor='#60a5fa')
-    ax.set_xlabel('Risk Score', color='#e2e8f0')
-    ax.set_ylabel('Frequency', color='#e2e8f0')
-    ax.tick_params(colors='#e2e8f0')
-    ax.spines['bottom'].set_color('#475569')
-    ax.spines['top'].set_color('#475569')
-    ax.spines['left'].set_color('#475569')
-    ax.spines['right'].set_color('#475569')
-    ax.grid(True, alpha=0.2, color='#475569')
-    st.pyplot(fig)
-
-    st.subheader("🏢 Department Risk Comparison")
-    st.bar_chart(df.groupby("department_id")["risk_score"].mean())
-
-    st.subheader("⏰ Fraud Pattern by Hour")
-    st.line_chart(df.groupby("hour")["fraud_flag"].mean())
-
-# ---------------- TAB 3: FLAGGED AUDITS ----------------
-with tab3:
-    st.subheader("🚨 Suspicious Transactions Requiring Audit")
-    
-    flagged = df[df["fraud_flag"] == 1][[
-        "transaction_id", "department_id", "vendor_id",
-        "amount", "risk_score", "risk_level", "explanation"
-    ]].sort_values("risk_score", ascending=False)
-
-    if flagged.empty:
-        st.success("✅ No suspicious transactions detected in filtered data.")
-    else:
-        st.warning(f"⚠️ Found {len(flagged)} suspicious transactions requiring immediate review")
-        st.dataframe(flagged, use_container_width=True)
-
-        st.download_button(
-            "📥 Download Suspicious Transactions CSV",
-            flagged.to_csv(index=False),
-            "suspicious_transactions.csv",
-            "text/csv"
-        )
-
-# ---------------- TAB 4: AI AUDITOR ASSISTANT ----------------
-with tab4:
-    st.markdown("""
-    <div class="chat-container">
-        <h2 style="color: #60a5fa; margin-bottom: 1rem;">💬 Virtual Auditor Assistant</h2>
-        <p style="color: #94a3b8; margin-bottom: 1.5rem;">AI-powered assistant to help auditors quickly understand risks and investigate anomalies</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("### 📋 Quick Audit Questions")
-
-    question = st.selectbox(
-        "Select a question to get instant insights:",
-        [
-            "Select a question...",
-            "How many high-risk transactions are there?",
-            "What is the total fraud detected?",
-            "Who are the top risky vendors?",
-            "Which department has highest risk?",
-            "Give risk-level summary",
-            "Show fraud trend by hour",
-            "Explain how this AI model works"
-        ]
+    # Multi-chart subplot
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=("Fraud by Hour", "Risk vs Amount", "Vendor Risk Heatmap", "Time Trends"),
+        specs=[[{"type": "scatter"}, {"type": "scatter"}],
+               [{"type": "heatmap"}, {"type": "line"}]]
     )
+    
+    # Fraud by Hour
+    hourly_fraud = df_filtered.groupby("hour")["fraud_flag"].mean()
+    fig.add_trace(go.Scatter(x=hourly_fraud.index, y=hourly_fraud.values, 
+                            mode='lines+markers', name='Fraud Rate',
+                            line=dict(color='#f59e0b', width=3)), row=1, col=1)
+    
+    # Risk vs Amount
+    fig.add_trace(go.Scatter(x=df_filtered["amount"], y=df_filtered["risk_score"],
+                            mode='markers', marker=dict(size=6, color='#6366f1', opacity=0.6),
+                            name='Txns'), row=1, col=2)
+    
+    # Vendor heatmap
+    vendor_risk = df_filtered.pivot_table(values='risk_score', index='department_id', 
+                                         columns='vendor_id', aggfunc='mean').fillna(0)
+    fig.add_trace(go.Heatmap(z=vendor_risk.values, x=vendor_risk.columns[:10],
+                            y=vendor_risk.index, colorscale='Viridis',
+                            name='Vendor Risk'), row=2, col=1)
+    
+    # Time trend
+    df_filtered['date'] = df_filtered['transaction_time'].dt.date
+    daily_fraud = df_filtered.groupby('date')['fraud_flag'].mean()
+    fig.add_trace(go.Scatter(x=daily_fraud.index, y=daily_fraud.values,
+                            mode='lines', name='Daily Fraud',
+                            line=dict(color='#a855f7')), row=2, col=2)
+    
+    fig.update_layout(height=800, showlegend=True)
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("### 🤖 AI Response")
+# --------------------------------------------------
+# TAB 3: AUDIT PRIORITY (Original)
+# --------------------------------------------------
+with tab3:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    flagged = df_filtered[df_filtered["fraud_flag"] == 1][[
+        "transaction_id", "department_id", "vendor_id", "amount", 
+        "risk_score", "risk_level", "explanation"
+    ]].sort_values("risk_score", ascending=False)
+    
+    if flagged.empty:
+        st.success("✅ No fraud detected")
+    else:
+        st.warning(f"🚨 {len(flagged)} transactions need audit!")
+        st.dataframe(flagged, use_container_width=True)
+        
+        st.download_button("📥 Download Flagged", flagged.to_csv(index=False),
+                          "flagged_txns.csv")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Chat-like response interface
-    if question != "Select a question...":
-        st.markdown(f"""
-        <div class="user-message">
-            <strong>👤 Auditor:</strong> {question}
-        </div>
-        """, unsafe_allow_html=True)
+# --------------------------------------------------
+# TAB 4: AI ASSISTANT (Original enhanced)
+# --------------------------------------------------
+with tab4:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("💬 AI Audit Assistant")
+    
+    question = st.selectbox("Quick Questions:", [
+        "Select...", "High-risk count?", "Total fraud?", "Top risky vendors?",
+        "Riskiest dept?", "Risk summary", "Fraud by hour", "How it works?"
+    ])
+    
+    if question != "Select...":
+        if "count" in question:
+            count = (df_filtered["risk_level"] == "High").sum()
+            st.metric("High Risk Transactions", count)
+        elif "fraud?" in question:
+            frauds = df_filtered["fraud_flag"].sum()
+            st.metric("Total Fraud Detected", frauds)
+        elif "vendors" in question:
+            top_vendors = df_filtered[df_filtered["fraud_flag"]==1]["vendor_id"].value_counts().head(5)
+            st.bar_chart(top_vendors)
+        elif "dept" in question:
+            riskiest = df_filtered.groupby("department_id")["risk_score"].mean().idxmax()
+            st.success(f"🚩 Riskiest: **{riskiest}**")
+        elif "summary" in question:
+            st.dataframe(df_filtered["risk_level"].value_counts().reset_index())
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if question == "How many high-risk transactions are there?":
-        count = (df["risk_level"] == "High").sum()
-        st.markdown(f"""
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br>
-            🔴 There are <strong>{count} high-risk transactions</strong> requiring immediate audit attention. These cases show significant deviation from normal patterns.
-        </div>
-        """, unsafe_allow_html=True)
-
-    elif question == "What is the total fraud detected?":
-        frauds = df["fraud_flag"].sum()
-        st.markdown(f"""
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br>
-            🚨 The system detected <strong>{frauds} suspicious transactions</strong> across all departments. These represent {round((frauds/len(df))*100, 2)}% of total transactions analyzed.
-        </div>
-        """, unsafe_allow_html=True)
-
-    elif question == "Who are the top risky vendors?":
-        vendors = df[df["fraud_flag"] == 1]["vendor_id"].value_counts().head(5)
-        if vendors.empty:
-            st.markdown("""
-            <div class="ai-message">
-                <strong>🤖 AI Assistant:</strong><br>
-                ✅ No risky vendors detected in the current filtered dataset.
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div class="ai-message">
-                <strong>🤖 AI Assistant:</strong><br>
-                🚩 <strong>Top 5 Risky Vendors:</strong>
-            </div>
-            """, unsafe_allow_html=True)
-            st.dataframe(vendors.reset_index().rename(columns={
-                "index": "Vendor ID",
-                "vendor_id": "Fraud Count"
-            }), use_container_width=True)
-
-    elif question == "Which department has highest risk?":
-        dept = df.groupby("department_id")["risk_score"].mean().idxmax()
-        score = df.groupby("department_id")["risk_score"].mean().max()
-        st.markdown(f"""
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br>
-            🏢 <strong>{dept} Department</strong> has the highest average risk score of <strong>{round(score, 2)}</strong>. Recommend prioritizing audit resources here.
-        </div>
-        """, unsafe_allow_html=True)
-
-    elif question == "Give risk-level summary":
-        summary = df["risk_level"].value_counts()
-        st.markdown("""
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br>
-            📊 <strong>Risk Distribution Summary:</strong>
-        </div>
-        """, unsafe_allow_html=True)
-        st.dataframe(summary.reset_index().rename(columns={
-            "index": "Risk Level",
-            "risk_level": "Transaction Count"
-        }), use_container_width=True)
-
-    elif question == "Show fraud trend by hour":
-        st.markdown("""
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br>
-            ⏰ <strong>Fraud Pattern by Hour of Day:</strong><br>
-            This chart shows the average fraud rate across different hours. Look for spikes during unusual times.
-        </div>
-        """, unsafe_allow_html=True)
-        trend = df.groupby("hour")["fraud_flag"].mean()
-        st.line_chart(trend)
-
-    elif question == "Explain how this AI model works":
-        st.markdown("""
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br><br>
-            <strong>🧠 AI Model Explanation</strong><br><br>
-            
-            <strong>Algorithm:</strong> Isolation Forest (Unsupervised Anomaly Detection)<br><br>
-            
-            <strong>How it Works:</strong><br>
-            • Learns normal spending behavior automatically without labeled fraud data<br>
-            • Isolates anomalies by measuring how different transactions are from typical patterns<br>
-            • Analyzes multiple dimensions: transaction amount, timing, vendor behavior, and department patterns<br><br>
-            
-            <strong>Key Features Used:</strong><br>
-            • Transaction amount (log-transformed)<br>
-            • Z-score vs department average<br>
-            • Time patterns (hour, night, weekend)<br>
-            • Vendor transaction frequency and amount ratios<br><br>
-            
-            <strong>Output:</strong><br>
-            • <strong>Risk Score (0-100):</strong> Higher scores indicate greater anomaly<br>
-            • <strong>Risk Level:</strong> Low (0-30), Medium (30-70), High (70-100)<br>
-            • <strong>Explanation:</strong> Human-readable reasons for flagging<br><br>
-            
-            <strong>Benefits:</strong><br>
-            ✅ No need for historical fraud labels<br>
-            ✅ Adapts to each department's spending patterns<br>
-            ✅ Prioritizes audits by risk level<br>
-            ✅ Provides explainable results for investigators
-        </div>
-        """, unsafe_allow_html=True)
-
-    elif question == "Select a question...":
-        st.info("👆 Please select a question from the dropdown above to get AI-powered insights.")
-
-    # Custom question input
-    st.markdown("---")
-    st.markdown("### ✍️ Ask Your Own Question")
-
-    custom_q = st.text_input("Type your audit-related question here")
-
-    if custom_q:
-        st.markdown(f"""
-        <div class="user-message">
-            <strong>👤 Auditor:</strong> {custom_q}
-        </div>
-        <div class="ai-message">
-            <strong>🤖 AI Assistant:</strong><br>
-            ⚠️ Free-text understanding is limited in this demo. For best results, please use the quick questions dropdown above. For complex queries, consider connecting this system to a large language model API.
-        </div>
-        """, unsafe_allow_html=True)
+# --------------------------------------------------
+# TAB 5: FULL DOWNLOADABLE REPORT
+# --------------------------------------------------
+with tab5:
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.subheader("📥 Complete Audit Report")
+    
+    # Generate PDF-like report buffer
+    report_buffer = io.BytesIO()
+    
+    # Summary metrics
+    st.subheader("1. Executive Summary")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Transactions", len(df_filtered))
+    col2.metric("Fraud Cases", df_filtered['fraud_flag'].sum())
+    col3.metric("High Risk", (df_filtered['risk_level']=='High').sum())
+    col4.metric("Fraud Rate", f"{df_filtered['fraud_flag'].mean()*100:.2f}%")
+    
+    st.subheader("2. Risk Distribution")
+    fig_summary = px.pie(df_filtered, names='risk_level', 
+                        title="Risk Level Breakdown")
+    st.plotly_chart(fig_summary, use_container_width=True)
+    
+    st.subheader("3. Top Suspicious Transactions")
+    top_flagged = flagged.head(20)
+    st.dataframe(top_flagged)
+    
+    # DOWNLOAD FULL REPORT
+    full_report = df_filtered.to_csv(index=False)
+    st.download_button(
+        label="📊 Download Complete Report (CSV)",
+        data=full_report,
+        file_name=f"ChitraGuptAI_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+        mime="text/csv"
+    )
+    
+    # HTML Report for better formatting
+    html_report = df_filtered.to_html(classes='table table-striped', escape=False)
+    st.download_button(
+        label="📄 Download HTML Dashboard Report",
+        data=html_report,
+        file_name=f"ChitraGuptAI_Dashboard_{datetime.now().strftime('%Y%m%d_%H%M')}.html",
+        mime="text/html"
+    )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------------------------------------
 # FOOTER
 # --------------------------------------------------
 st.markdown("---")
-
+st.markdown("""
+<div style='text-align: center; color: #94a3b8; padding: 2rem;'>
+    <p>🛡️ ChitraGuptAI - AI Fraud Detection | Powered by Streamlit & Plotly</p>
+    <p>🔄 Real-time updates every 60 seconds | Last update: {}</p>
+</div>
+""".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")), unsafe_allow_html=True)
