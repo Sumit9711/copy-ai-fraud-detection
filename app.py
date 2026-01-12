@@ -435,46 +435,147 @@ with tab1:
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --------------------------------------------------
-# TAB 2: RISK ANALYTICS - Interactive Plotly
+# TAB 2: ADVANCED RISK ANALYTICS (LOVABLE-STYLE)
 # --------------------------------------------------
 with tab2:
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.subheader("📊 Advanced Risk Analytics")
-    
-    # Multi-chart subplot
+    st.subheader("📈 Advanced Risk Analytics")
+
     fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=("Fraud by Hour", "Risk vs Amount", "Vendor Risk Heatmap", "Time Trends"),
-        specs=[[{"type": "scatter"}, {"type": "scatter"}],
-               [{"type": "heatmap"}, {"type": "scatter"}]]
+        rows=2,
+        cols=2,
+        horizontal_spacing=0.12,
+        vertical_spacing=0.18,
+        subplot_titles=[
+            "🕒 Fraud Probability by Hour",
+            "💰 Transaction Amount vs Risk Score",
+            "🔥 Vendor–Department Risk Heatmap",
+            "📆 Daily Fraud Trend"
+        ]
     )
-    
-    # Fraud by Hour
-    hourly_fraud = df_filtered.groupby("hour")["fraud_flag"].mean()
-    fig.add_trace(go.Scatter(x=hourly_fraud.index, y=hourly_fraud.values, 
-                            mode='lines+markers', name='Fraud Rate',
-                            line=dict(color='#f59e0b', width=3)), row=1, col=1)
-    
-    # Risk vs Amount
-    fig.add_trace(go.Scatter(x=df_filtered["amount"], y=df_filtered["risk_score"],
-                            mode='markers', marker=dict(size=6, color='#6366f1', opacity=0.6),
-                            name='Txns'), row=1, col=2)
-    
-    # Vendor heatmap
-    vendor_risk = df_filtered.pivot_table(values='risk_score', index='department_id', 
-                                         columns='vendor_id', aggfunc='mean').fillna(0)
-    fig.add_trace(go.Heatmap(z=vendor_risk.values, x=vendor_risk.columns[:10],
-                            y=vendor_risk.index, colorscale='Viridis',
-                            name='Vendor Risk'), row=2, col=1)
-    
-    # Time trend
-    df_filtered['date'] = df_filtered['transaction_time'].dt.date
-    daily_fraud = df_filtered.groupby('date')['fraud_flag'].mean()
-    fig.add_trace(go.Scatter(x=daily_fraud.index, y=daily_fraud.values,
-                            mode='lines', name='Daily Fraud',
-                            line=dict(color='#a855f7')), row=2, col=2)
-    
-    fig.update_layout(height=800, showlegend=True)
+
+    # ===============================
+    # 1. FRAUD BY HOUR
+    # ===============================
+    hourly_fraud = (
+        df_filtered
+        .groupby("hour")["fraud_flag"]
+        .mean()
+        .reset_index()
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=hourly_fraud["hour"],
+            y=hourly_fraud["fraud_flag"],
+            mode="lines+markers",
+            line=dict(color="#f59e0b", width=4),
+            marker=dict(size=8),
+            hovertemplate="Hour: %{x}<br>Fraud Rate: %{y:.2%}<extra></extra>"
+        ),
+        row=1,
+        col=1
+    )
+
+    # ===============================
+    # 2. RISK vs AMOUNT
+    # ===============================
+    fig.add_trace(
+        go.Scatter(
+            x=df_filtered["amount"],
+            y=df_filtered["risk_score"],
+            mode="markers",
+            marker=dict(
+                size=7,
+                color=df_filtered["risk_score"],
+                colorscale="Viridis",
+                opacity=0.65,
+                showscale=True,
+                colorbar=dict(title="Risk")
+            ),
+            hovertemplate="Amount: ₹%{x:,.0f}<br>Risk: %{y:.1f}<extra></extra>"
+        ),
+        row=1,
+        col=2
+    )
+
+    # ===============================
+    # 3. VENDOR–DEPT HEATMAP
+    # ===============================
+    heatmap_df = (
+        df_filtered
+        .pivot_table(
+            values="risk_score",
+            index="department_id",
+            columns="vendor_id",
+            aggfunc="mean"
+        )
+        .fillna(0)
+    )
+
+    fig.add_trace(
+        go.Heatmap(
+            z=heatmap_df.values,
+            x=heatmap_df.columns[:10],
+            y=heatmap_df.index,
+            colorscale="Inferno",
+            colorbar=dict(title="Avg Risk"),
+            hovertemplate="Dept: %{y}<br>Vendor: %{x}<br>Risk: %{z:.1f}<extra></extra>"
+        ),
+        row=2,
+        col=1
+    )
+
+    # ===============================
+    # 4. DAILY FRAUD TREND
+    # ===============================
+    daily_trend = (
+        df_filtered
+        .groupby(df_filtered["transaction_time"].dt.date)["fraud_flag"]
+        .mean()
+        .reset_index()
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=daily_trend["transaction_time"],
+            y=daily_trend["fraud_flag"],
+            mode="lines",
+            line=dict(color="#a855f7", width=3),
+            hovertemplate="Date: %{x}<br>Fraud Rate: %{y:.2%}<extra></extra>"
+        ),
+        row=2,
+        col=2
+    )
+
+    # ===============================
+    # GLOBAL STYLING (LOVABLE LOOK)
+    # ===============================
+    fig.update_layout(
+        height=880,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(10,14,26,0.6)",
+        font=dict(color="#e5e7eb", size=13),
+        title=dict(
+            text="🔍 Fraud Risk Deep-Dive Analytics",
+            x=0.5,
+            font=dict(size=22, color="#f59e0b", family="Inter, sans-serif")
+        ),
+        showlegend=False
+    )
+
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="rgba(148,163,184,0.1)",
+        zeroline=False
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(148,163,184,0.1)",
+        zeroline=False
+    )
+
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
