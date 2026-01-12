@@ -111,16 +111,6 @@ st.markdown("""
     overflow: hidden;
 }
 
-.glass-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
-}
-
 .glass-card:hover {
     border-color: rgba(99, 102, 241, 0.6);
     box-shadow: 0 30px 80px rgba(99, 102, 241, 0.2);
@@ -328,8 +318,6 @@ else:
 # --------------------------------------------------
 # FEATURE ENGINEERING (Original logic)
 # --------------------------------------------------
-st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-st.info("🔄 Processing features & running AI model...")
 df["transaction_time"] = pd.to_datetime(df["transaction_time"])
 df["hour"] = df["transaction_time"].dt.hour
 df["is_night"] = ((df["hour"] < 6) | (df["hour"] > 22)).astype(int)
