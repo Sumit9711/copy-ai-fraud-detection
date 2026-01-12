@@ -446,7 +446,7 @@ with tab2:
         rows=2, cols=2,
         subplot_titles=("Fraud by Hour", "Risk vs Amount", "Vendor Risk Heatmap", "Time Trends"),
         specs=[[{"type": "scatter"}, {"type": "scatter"}],
-               [{"type": "heatmap"}, {"type": "line"}]]
+               [{"type": "heatmap"}, {"type": "scatter"}]]
     )
     
     # Fraud by Hour
