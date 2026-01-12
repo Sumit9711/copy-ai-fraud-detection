@@ -760,5 +760,5 @@ with tab4:
 # FOOTER
 # --------------------------------------------------
 st.markdown("---")
-st.markdown("""
+st.markdown("")
 <div style='text-align: center; color: #64748b; padding: 1rem;'>
