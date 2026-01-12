@@ -376,7 +376,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 # --------------------------------------------------
 st.markdown("""
 <div class="main-header">
-    <div class="big-title">🛡️ AI-Based Public Fraud Detection System</div>
+    <div class="big-title">🛡️ChitraGuptAI</div>
     <p class="subtitle">Detect anomalies, assess risk, and support government audits using AI</p>
 </div>
 """, unsafe_allow_html=True)
@@ -760,8 +760,4 @@ with tab4:
 # FOOTER
 # --------------------------------------------------
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #64748b; padding: 1rem;'>
-    © 2026 AI Public Fraud Detection
-</div>
-""")
+
