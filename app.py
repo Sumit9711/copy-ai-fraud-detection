@@ -666,8 +666,8 @@ with tab4:
             </div>
             """, unsafe_allow_html=True)
             st.dataframe(vendors.reset_index().rename(columns={
-                "vendor_id": "Vendor ID",
-                "count": "Fraud Count"
+                "index": "Vendor ID",
+                "vendor_id": "Fraud Count"
             }), use_container_width=True)
 
     elif question == "Which department has highest risk?":
@@ -689,8 +689,8 @@ with tab4:
         </div>
         """, unsafe_allow_html=True)
         st.dataframe(summary.reset_index().rename(columns={
-            "risk_level": "Risk Level",
-            "count": "Transaction Count"
+            "index": "Risk Level",
+            "risk_level": "Transaction Count"
         }), use_container_width=True)
 
     elif question == "Show fraud trend by hour":
@@ -760,5 +760,8 @@ with tab4:
 # FOOTER
 # --------------------------------------------------
 st.markdown("---")
-st.markdown("")
+st.markdown("""
 <div style='text-align: center; color: #64748b; padding: 1rem;'>
+    © 2026 AI Public Fraud Detection
+</div>
+""")
